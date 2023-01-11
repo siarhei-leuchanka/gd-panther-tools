@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# 
+/WORKSPACES_TO_COPY copy.yaml

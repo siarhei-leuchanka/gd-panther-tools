@@ -1,0 +1,16 @@
+attrs==21.4.0
+cattrs==22.1.0
+exceptiongroup==1.1.0
+gooddata-afm-client==1.2.0
+gooddata-api-client==1.2.0
+gooddata-metadata-client==1.2.0
+gooddata-scan-client==1.2.0
+gooddata-sdk==1.2.0
+importlib-metadata==6.0.0
+python-dateutil==2.8.2
+PyYAML==6.0
+ruamel.yaml==0.17.21
+ruamel.yaml.clib==0.2.7
+six==1.16.0
+urllib3==1.26.14
+zipp==3.11.0
