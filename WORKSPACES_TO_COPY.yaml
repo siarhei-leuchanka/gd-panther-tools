@@ -1,42 +1,8 @@
-### Description
-#ORIGINAL_HOST:str - Endpoint of GD Cloud from which you want to copy workspaces
-#ORIGINAL_HOST:str - TOKEN 
-#TARGET_HOST:str - The target GD Cloud or CN instance you want to copy workspaces into. -
-#- If you want just to duplicate for the same instance as the Original HOST, provide HOST and TOKEN as empty strings ""
-#COPY_DB_SOURCE:Boolen - If you need to transfer data sources associated with workspaces provide True. It is now copying 
-#- all workspaces frmo the original one and will not let you update the target host if any duplicates are found. 
-#- Duplicates are checked by data source ID
-
-#WORKSPACES_TO_COPY:lst
-  # workspaces:lst -> provide a list of workspaces ID even for one
-  # parent:str -> Optional. Parent workspace ID. Should be provided if you have in workspaces list ids that are children for the parent one
-  # prefix:str -> Optinal. Prefix to avoid updates of the existing workspaces with the same data. 
-
-
-
-
-
-
-### Example of the file 
-
-# ORIGINAL_HOST: https://sergeylevch...................
-# ORIGINAL_HOST_TOKEN: c2VyZ2V5L.......
-# TARGET_HOST: http://localhost:3000 
-# TARGET_HOST_TOKEN: ZGVtbzpOZ.... 
-# COPY_DB_SOURCE: False 
-
-# WORKSPACES_TO_COPY:
-#   - 
-    
-#     workspaces: ['ecommerce-merchant-bigboxretailer','ecommerce-merchant-clothing','ecommerce-merchant-electronics']
-#     #optional parameters, delete if not needed
-#     parent: ecommerce-parent
-#     prefix: SDK1
-#   -
-#     workspaces: ['2f3c38276bf5410caabbcb1522b1f746']
-#     prefix: SDK2
-#   -
-#     workspaces: ['test-api-call-demo-workspace']
-
-
+ORIGINAL_HOST: 
+ORIGINAL_HOST_TOKEN: 
+TARGET_HOST:  # leave blank string ('') if go with the same GD Cloud Instance
+TARGET_HOST_TOKEN:  # leave blank if go with the same GD Cloud Instance
+COPY_DB_SOURCE: False 
+WORKSPACES_TO_COPY: ['']
+PREFIX_FOR_NEW_WORKSPACES: '' # leave empty '' if transfer to another instance. (!) Mandatory to replicate in the same environment
 

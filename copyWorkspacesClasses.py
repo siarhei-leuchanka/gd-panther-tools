@@ -1,132 +1,178 @@
 import copy
+from gooddata_sdk import GoodDataSdk
 
-class CheckWorkspaces:
-    def __init__(self, original_source_SDK, workspaces_to_copy) -> None:
-        self.workspaces_to_check = []        
-        self.workspaces_in_original = []
-        self.original_source_SDK = original_source_SDK
-        self.workspaces_to_copy = workspaces_to_copy
-        self.workspaces_in_original_meta = original_source_SDK.catalog_workspace.list_workspaces()
-    
-    def _parse_workspaces_to_copy(self):
-        for workspaces in self.workspaces_to_copy: 
-            if 'parent' in workspaces:
-                if workspaces.get('parent', '') != None:                
-                    self.workspaces_to_check.append(workspaces['parent'])
-            if 'workspaces' in workspaces:
-                if workspaces['workspaces']!= None :
-                    self.workspaces_to_check +=  workspaces['workspaces']
-            else:
-                raise Exception("You have to provide workspaces")
-
-    def _parse_workspace_list_objects(self):
-        self.workspaces_in_original = []
-        self.workspaces_in_original_to_dict = {}
-        for workspace in self.workspaces_in_original_meta:   
-            self.workspaces_in_original.append(workspace.id)
-            self.workspaces_in_original_to_dict[workspace.id]=workspace                
-        return self.workspaces_in_original_to_dict
-    
-    def original_workspaces_dict(self):
-        return self._parse_workspace_list_objects()
-
-    def check_workspaces_presence(self):
-        self._parse_workspaces_to_copy()
-        self._parse_workspace_list_objects()
-        check = all(item in self.workspaces_in_original for item in self.workspaces_to_check) 
-        if check is False:
-            raise Exception("you made some issue(s) with workspaces IDs. Check that Workspaces you requested really exist in the source GD Cloud Instance")
-            
-        else:
-            print("Requested workspaces are found in the original source. All good. Continue")
-
-class CheckDataSources:
-    def __init__(self, original_source_SDK, target_source_SDK) -> None:
-        self.original_source_SDK = original_source_SDK
+class CheckInputs:
+    def __init__(self, original_source_SDK: GoodDataSdk, target_source_SDK: GoodDataSdk, workspaces_to_copy) -> None:
+        self.original_source_SDK = original_source_SDK        
         self.target_source_SDK = target_source_SDK
-    
-    def data_sources_duplicated_by_id(self):
-        for original_dataSource in self.original_source_SDK.catalog_data_source.list_data_sources():
-            for target_dataSource in self.target_source_SDK.catalog_data_source.list_data_sources():
-                print(original_dataSource.id, "!=?" ,target_dataSource.id)
-                if original_dataSource.id == target_dataSource.id:
-                    print("Abort data sources transition! Check your destinatation list of data sources. Target Instance has Data source with the same ID!")
-                    return True
-        return False
-                    
-class CreateWorkSpaces:
-    def __init__(self, original_source_SDK, target_source_SDK, original_workspaces_dict, workspaces_to_copy, CatalogWorkspace, CatalogDeclarativeWorkspaceDataFilters) -> None:        
-        self.original_source_SDK = original_source_SDK #original_workspaces_dict - > is from CheckWorkspaces.original_workspaces_dict
-        self.target_source_SDK = target_source_SDK
-        self.original_workspaces_dict = original_workspaces_dict
+        self.original_list_workspaces = self.original_source_SDK.catalog_workspace.list_workspaces()
         self.workspaces_to_copy = workspaces_to_copy
-        self.CatalogWorkspace = CatalogWorkspace
-        self.CatalogDeclarativeWorkspaceDataFilters = CatalogDeclarativeWorkspaceDataFilters
         
-    def _create_workspace(self, w_id, w_name, w_parent):
-        self.target_source_SDK.catalog_workspace.create_or_update(
-            self.CatalogWorkspace(
-                workspace_id= w_id,
-                name= w_name,
-                parent_id = w_parent
-            )
-        )
+
+    def valid_workspaces(self) -> bool:        
+        workspace_ids_original_host = [w.id for w in self.original_list_workspaces]        
+        check = all(item in workspace_ids_original_host for item in self.workspaces_to_copy)        
+        return True if check == True else False            
     
-    def _get_and_load_LDM_and_ADM(self, from_workspace_id, to_workspace_id):
+    
+    def _get_data_sources(self):
+        data_sources = []
+        for workspace in self.workspaces_to_copy:            
+            ldm = self.original_source_SDK.catalog_workspace_content.get_declarative_ldm(workspace).to_dict()
+            for i in ldm['ldm']['datasets']:
+                if i['dataSourceTableId']['dataSourceId'] not in data_sources:
+                    data_sources.append(i['dataSourceTableId']['dataSourceId'])
+        return data_sources
+
+
+    def data_sources_duplicated_by_id(self) -> bool:
+        original_data_sources = self._get_data_sources()
+        target_data_sources = [i.id for i in self.target_source_SDK.catalog_data_source.list_data_sources()]
+        
+        check = any(item in original_data_sources for item in target_data_sources)
+        if check:
+            print("Abort data sources transition! Check your destinatation list of data sources. Target Instance has Data source with the same ID!")
+            return True
+        else:
+            print("No duplicates are found")
+            return False
+
+
+    @property
+    def data_sources(self):        
+        return self._get_data_sources()
+
+
+class WorkspacesProcurement:
+    def __init__(self, original_source_SDK: GoodDataSdk, target_source_SDK: GoodDataSdk) -> None:
+        self.original_source_SDK = original_source_SDK        
+        self.target_source_SDK = target_source_SDK
+        self.original_list_workspaces = self.original_source_SDK.catalog_workspace.list_workspaces()
+        self.collected_parents_workspaces = []
+        
+        self.declarative_workspace_filters = self.original_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()        
+        self.workspaceDataFilters = list(self.declarative_workspace_filters["workspaceDataFilters"])
+        
+        self.target_list_workspaces = self.target_source_SDK.catalog_workspace.list_workspaces()
+        self.workspace_ids_target_host = [w.id for w in self.target_list_workspaces]        
+        
+
+    def workspace_info(self,workspace_id):
+        w = self.original_source_SDK._catalog_workspace.get_workspace(workspace_id)
+        return  {
+            'id': workspace_id,
+             'name': w.name,
+             'parent': w.parent_id
+        }
+
+
+    def create_workspace(self, CatalogWorkspace, workspace_id, prefix) -> str or None:
+        self.info = self.workspace_info(workspace_id)     
+        self.name = self.info['name']
+        self.parent = self.info['parent']
+        
+        if prefix+workspace_id not in self.workspace_ids_target_host:            
+            # if parent exists - do not touch it
+            
+            if self.parent is not None:
+                self.parent = prefix+self.parent
+            else:
+                self.parent = ''
+                self.collected_parents_workspaces.append(workspace_id)
+            
+            self.target_source_SDK.catalog_workspace.create_or_update(
+                CatalogWorkspace(
+                    workspace_id = prefix + workspace_id,
+                    name = prefix + self.name,
+                    parent_id = self.parent
+                )
+            )
+            return workspace_id
+        else:
+            print(workspace_id, "-> with added prefix has been already in the target host. Skipping it's creation ")
+
+        print("Collected Parent Workspaces ->", self.collected_parents_workspaces)
+
+
+    def get_parent(self, workspace_id, instance=None):
+        if instance == 'target':
+            self.workspace = self.target_source_SDK.catalog_workspace.get_workspace(workspace_id)    
+        if instance is None or instance == 'original':
+            self.workspace = self.original_source_SDK.catalog_workspace.get_workspace(workspace_id)
+        return self.workspace.parent_id
+
+
+    def restore_hierarchy(self,workspace_id):
+        self.catalog = []
+        self.catalog.append(workspace_id)
+        self.parent = self.get_parent(workspace_id)            
+        while self.parent is not None:    
+            self.catalog.append(self.parent)
+            self.parent = self.get_parent(self.parent)
+        return self.catalog
+
+
+    def get_and_load_LDM_and_ADM(self, from_workspace_id, prefix) -> None:
         self.ldm_to_load, self.adm_to_load = '',''
 
         self.ldm_to_load = self.original_source_SDK.catalog_workspace_content.get_declarative_ldm(from_workspace_id)
         self.adm_to_load = self.original_source_SDK.catalog_workspace_content.get_declarative_analytics_model(from_workspace_id)
 
-        self.target_source_SDK.catalog_workspace_content.put_declarative_ldm(to_workspace_id, self.ldm_to_load)
-        self.target_source_SDK.catalog_workspace_content.put_declarative_analytics_model(to_workspace_id, self.adm_to_load)
-
-
-    def _transfer_data_filter(self, parent_w_id, prefix):
-        self.declarative_workspace_filters = self.original_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()
-        
-        self.workspaceDataFilters = list(self.declarative_workspace_filters["workspaceDataFilters"])
-        for filter in self.workspaceDataFilters:    
-            if filter['workspace']['id'] == parent_w_id:
-                self.copy_filter = copy.deepcopy(filter)      
-                self.copy_filter['workspace']['id'] = prefix + parent_w_id
-                for workspace in self.copy_filter['workspaceDataFilterSettings']:
-                    workspace['workspace']['id']=prefix + workspace['workspace']['id']
-                if self.original_source_SDK != self.target_source_SDK: ### checking that we are not transferring to the same GD Cloud Instance
-                    return {'workspaceDataFilters' : [self.copy_filter]}
-                else:
-                    return self.declarative_workspace_filters['workspaceDataFilters'].append(self.copy_filter)
-            else:
-                print("no data filters found! Your children workspaces may not work correctly")
-
-
-    def replicate_workspaces(self):        
-        for workspace in self.workspaces_to_copy:
-            self.prefix = ""            
-            self.w_id_parent = workspace.get('parent', '')
-            
-            if self.w_id_parent != '':
-                self.prefix = workspace.get('prefix','')
-                self._create_workspace(self.prefix + self.w_id_parent, self.prefix + self.original_workspaces_dict.get(self.w_id_parent).name, '')
-                for item in workspace.get('workspaces'):
-                    self._create_workspace(self.prefix + item, self.prefix + self.original_workspaces_dict.get(item).name, self.prefix + workspace.get('parent', ''))
-                
-                #loading LDM & ADM
-                self._get_and_load_LDM_and_ADM(self.w_id_parent, self.prefix + self.w_id_parent)
-
-                #loading Data Filters associated with parent workspace
-                self.data_filter = self._transfer_data_filter(self.w_id_parent,self.prefix)
-                self.target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = self.CatalogDeclarativeWorkspaceDataFilters.from_dict(self.data_filter))
-
-            else:
-                for item in workspace.get('workspaces'):
-                    self.prefix = workspace.get('prefix','')
-                    self._create_workspace(self.prefix + item, self.prefix + self.original_workspaces_dict.get(item).name, '')
-
-                    #loading LDM & ADM
-                    self._get_and_load_LDM_and_ADM(item, self.prefix + item)
+        self.target_source_SDK.catalog_workspace_content.put_declarative_ldm(prefix + from_workspace_id, self.ldm_to_load)
+        self.target_source_SDK.catalog_workspace_content.put_declarative_analytics_model(prefix + from_workspace_id, self.adm_to_load)
     
 
+    def transfer_data_filters(self, w_id_list,prefix):
+        self.output = []
+        
 
+        for filter in self.workspaceDataFilters:
+            self.settings = []
+            
+            if filter['workspace']['id'] in w_id_list:
+                print(filter)
+                self.copy_filter = copy.deepcopy(filter)                
+                for workspace in self.copy_filter['workspaceDataFilterSettings']:
+                    self.c_workspace = copy.deepcopy(workspace)
+                    print('\033[93m', workspace)
+                    if workspace['workspace']['id'] in w_id_list: 
+                        print('workspaces in settings are found')
+                        #checking that only filters for the loaded workspaces are replicated
+                        self.c_workspace['workspace']['id'] = prefix + workspace['workspace']['id']
+                        self.c_workspace['id'] = prefix + workspace['id']                
+                    else:
+                        print('\033[94m', workspace, "- to be removed from list")
+                        del self.c_workspace
+                    
+                    try:
+                        self.settings.append(self.c_workspace)
+                    except:
+                        print('indeed removed')
+
+                self.copy_filter['workspaceDataFilterSettings'] = self.settings
+                
+                # adding prefixed to the rest of the important data
+                self.copy_filter ['id'] = prefix + self.copy_filter['id']
+                self.copy_filter ['workspace']['id'] = prefix + self.copy_filter ['workspace']['id']
+                
+                #prepareing the modified list
+                self.output.append(self.copy_filter)
+        print("processed data filters ->", self.output)
+
+        if self.original_source_SDK != self.target_source_SDK: ### checking that we are not transferring to the same GD Cloud Instance            
+            # merge with target data filters.   
+            target_data_filters = self.target_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()['workspaceDataFilters']
+            return {'workspaceDataFilters' : self.output + target_data_filters}
+        else:
+            print("Loaded Data Filters","----->", {'workspaceDataFilters' : self.output + self.workspaceDataFilters}, "<---------")           
+            return  {'workspaceDataFilters' : self.output + self.workspaceDataFilters}
 
         
+    @property
+    def get_parents_workspaces(self):
+        return self.collected_parents_workspaces
+
+
+## missing use case: You transfer to not empty instance. You transfer child only. Target instance has parent. 
+# Now, you need to update parent's data filter with the proper seetting. 
+##
