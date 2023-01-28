@@ -1,11 +1,11 @@
-# Panther copier
+# Panther copier #0.0.2
 Supported use cases:
 1. Copy all workspaces from one instance to another
-2. Copy workspaces with parent. Parent workspace will be transferred automatically
-3. Copy selected workspaces while its parent exists - DataFilters are not SUPPORTED YET! Will fail
-4. - The same for the same instance with use of defined prefix
+2. Copy workspaces with no parent. Parent workspace will be transferred automatically
+3. Copy selected workspaces while its parent exists in the target instance
+4. - The same for the same instance with use of defined prefix or postfix.
 
-The script is not ready to update workspaces in the target instance, only create!
+The script is not ready to update workspaces in the target instance, only create from scratch! Do not attemp to update existing workspaces. It could lead to unpredicted results. 
 
 # How to:
 0. Install dependencies from requirements.txt . Using pip install -r requirements.txt

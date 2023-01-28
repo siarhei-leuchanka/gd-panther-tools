@@ -130,3 +130,10 @@ dmypy.json
 
 # 
 /WORKSPACES_TO_COPY copy.yaml
+
+# good data exports
+/gooddata_layouts
+/workspaces_data_filters
+
+# testing notebook
+test.ipynb

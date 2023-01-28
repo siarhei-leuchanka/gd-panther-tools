@@ -1,6 +1,7 @@
 from gooddata_sdk import GoodDataSdk, CatalogWorkspace, CatalogDeclarativeWorkspaceDataFilters
 import copyWorkspacesClasses as cl
 import ruamel.yaml
+import sys
 
 
 # Reading instructions for workspaces to copy
@@ -18,8 +19,13 @@ try:
         target_source_SDK = GoodDataSdk.create(config_data['TARGET_HOST'], config_data['TARGET_HOST_TOKEN'])
         print("Copying to the " + config_data['TARGET_HOST'])
     else:
-        target_source_SDK = original_source_SDK
-        print("Copying to the same HOST")
+        if prefix != '':
+            target_source_SDK = original_source_SDK
+            print("Copying to the same HOST")
+        else:
+            print("You need to provide Prefix or Postfix!")
+            sys.exit(1)
+
 except:
     print("Check credentials. Something is wrong with your SDK instance creation")
 
@@ -68,9 +74,32 @@ for parent in transfer.get_parents_workspaces:
     transfer.get_and_load_LDM_and_ADM(parent,config_data.get('PREFIX_FOR_NEW_WORKSPACES', ''))
 
 
-# loading Data Filters
-data_filters = transfer.transfer_data_filters(created_workspaces, prefix)
-target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict(data_filters))
+### Preparing & loading Data Filters
+
+extracted_data_filters = transfer.extract_data_filters(created_workspaces,prefix,'')
+
+# extracting existing data filters from target instance
+target_data_filters = target_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()['workspaceDataFilters']
+
+# getting list of ids to check the Collision Course 
+# (c) JAY-Z, Linkin Park ~♫♬ ♫♫ ♪♩ ♬♬ ♬♬ 
+extracted_data_filters_id = [i['id'] for i in extracted_data_filters]
+target_data_filters_id = [i['id'] for i in target_data_filters]
+
+collisions =[   id     for id in target_data_filters_id     if id in extracted_data_filters_id   ]
+
+if collisions == []:
+    target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict({'workspaceDataFilters' : extracted_data_filters + target_data_filters}))    
+else:
+    for filter in target_data_filters:
+        if filter['id'] in collisions:
+            for extracted_filter in extracted_data_filters:
+                if extracted_filter['id'] == filter['id']:
+                    extracted_filter['workspaceDataFilterSettings'].extend(filter['workspaceDataFilterSettings'])                
+        else:
+            extracted_data_filters.append(filter)    
+    target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict({'workspaceDataFilters' : extracted_data_filters}))        
+
 
 
 
