@@ -122,57 +122,29 @@ class WorkspacesProcurement:
         self.target_source_SDK.catalog_workspace_content.put_declarative_analytics_model(prefix + from_workspace_id, self.adm_to_load)
     
 
-    def transfer_data_filters(self, w_id_list,prefix):
+    def extract_data_filters(self, workspaces:list, prefix:str, postfix:str) -> list:
         self.output = []
         
-
-        for filter in self.workspaceDataFilters:
-            self.settings = []
-            
-            if filter['workspace']['id'] in w_id_list:
-                print(filter)
-                self.copy_filter = copy.deepcopy(filter)                
-                for workspace in self.copy_filter['workspaceDataFilterSettings']:
-                    self.c_workspace = copy.deepcopy(workspace)
-                    print('\033[93m', workspace)
-                    if workspace['workspace']['id'] in w_id_list: 
-                        print('workspaces in settings are found')
-                        #checking that only filters for the loaded workspaces are replicated
-                        self.c_workspace['workspace']['id'] = prefix + workspace['workspace']['id']
-                        self.c_workspace['id'] = prefix + workspace['id']                
-                    else:
-                        print('\033[94m', workspace, "- to be removed from list")
-                        del self.c_workspace
+        for dataFilter in self.workspaceDataFilters:
+            dataFilter_copy = copy.deepcopy(dataFilter)
+            dataFilter_copy['workspaceDataFilterSettings'] = []
+            for filterValues in dataFilter['workspaceDataFilterSettings']:
+                if filterValues.get('workspace')['id'] in workspaces:
+                    filterValues_copy = copy.deepcopy(filterValues)
+                    filterValues_copy['id'] = prefix + filterValues_copy['id'] + postfix
+                    filterValues_copy['workspace']['id'] = prefix + filterValues_copy['workspace']['id'] + postfix
                     
-                    try:
-                        self.settings.append(self.c_workspace)
-                    except:
-                        print('indeed removed')
+                    dataFilter_copy['workspaceDataFilterSettings'].append(filterValues_copy)
+            if dataFilter_copy['workspaceDataFilterSettings'] == []:
+                del dataFilter_copy
+            else:
+                self.output.append(dataFilter_copy)
+                dataFilter_copy['id'] = prefix + dataFilter_copy['id'] + postfix
+                dataFilter_copy['workspace']['id'] = prefix + dataFilter_copy['workspace']['id'] + postfix
 
-                self.copy_filter['workspaceDataFilterSettings'] = self.settings
-                
-                # adding prefixed to the rest of the important data
-                self.copy_filter ['id'] = prefix + self.copy_filter['id']
-                self.copy_filter ['workspace']['id'] = prefix + self.copy_filter ['workspace']['id']
-                
-                #prepareing the modified list
-                self.output.append(self.copy_filter)
-        print("processed data filters ->", self.output)
 
-        if self.original_source_SDK != self.target_source_SDK: ### checking that we are not transferring to the same GD Cloud Instance            
-            # merge with target data filters.   
-            target_data_filters = self.target_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()['workspaceDataFilters']
-            return {'workspaceDataFilters' : self.output + target_data_filters}
-        else:
-            print("Loaded Data Filters","----->", {'workspaceDataFilters' : self.output + self.workspaceDataFilters}, "<---------")           
-            return  {'workspaceDataFilters' : self.output + self.workspaceDataFilters}
-
-        
+        return self.output
+    
     @property
     def get_parents_workspaces(self):
         return self.collected_parents_workspaces
-
-
-## missing use case: You transfer to not empty instance. You transfer child only. Target instance has parent. 
-# Now, you need to update parent's data filter with the proper seetting. 
-##
