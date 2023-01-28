@@ -11,6 +11,7 @@ with open('WORKSPACES_TO_COPY copy.yaml', 'r') as File:
 
 WORKSPACES_TO_COPY= config_data['WORKSPACES_TO_COPY']
 prefix = config_data.get('PREFIX_FOR_NEW_WORKSPACES', '')
+postfix = config_data.get('POSTFIX', '')
 
 # creating SDK instances
 try:
@@ -19,7 +20,7 @@ try:
         target_source_SDK = GoodDataSdk.create(config_data['TARGET_HOST'], config_data['TARGET_HOST_TOKEN'])
         print("Copying to the " + config_data['TARGET_HOST'])
     else:
-        if prefix != '':
+        if prefix != '' and postfix != '':
             target_source_SDK = original_source_SDK
             print("Copying to the same HOST")
         else:
@@ -64,19 +65,19 @@ for w in WORKSPACES_TO_COPY:
     for workspace in workspaces_with_parents:
         if workspace not in created_workspaces:
             print('creating workspace ->> ', workspace)            
-            created_workspaces.append(transfer.create_workspace(CatalogWorkspace, workspace, prefix))
+            created_workspaces.append(transfer.create_workspace(CatalogWorkspace, workspace, prefix, postfix))
 
-print("Created_workspaces ->", created_workspaces)
+print("Created_workspaces ->", created_workspaces, " Added Prefix {} . Postfix {}".format(prefix,postfix))
 
 # loading LDM & ADM 
 for parent in transfer.get_parents_workspaces:
     print("loading LDM & ADM for Parent -> ", parent)
-    transfer.get_and_load_LDM_and_ADM(parent,config_data.get('PREFIX_FOR_NEW_WORKSPACES', ''))
+    transfer.get_and_load_LDM_and_ADM(parent, prefix, postfix)
 
 
 ### Preparing & loading Data Filters
 
-extracted_data_filters = transfer.extract_data_filters(created_workspaces,prefix,'')
+extracted_data_filters = transfer.extract_data_filters(created_workspaces,prefix,postfix)
 
 # extracting existing data filters from target instance
 target_data_filters = target_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()['workspaceDataFilters']

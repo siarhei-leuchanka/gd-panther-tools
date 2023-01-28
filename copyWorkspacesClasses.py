@@ -66,24 +66,24 @@ class WorkspacesProcurement:
         }
 
 
-    def create_workspace(self, CatalogWorkspace, workspace_id, prefix) -> str or None:
+    def create_workspace(self, CatalogWorkspace, workspace_id, prefix:str, postfix:str) -> str or None:
         self.info = self.workspace_info(workspace_id)     
         self.name = self.info['name']
         self.parent = self.info['parent']
         
-        if prefix+workspace_id not in self.workspace_ids_target_host:            
+        if prefix+workspace_id+postfix not in self.workspace_ids_target_host:            
             # if parent exists - do not touch it
             
             if self.parent is not None:
-                self.parent = prefix+self.parent
+                self.parent = prefix+self.parent+postfix
             else:
                 self.parent = ''
                 self.collected_parents_workspaces.append(workspace_id)
             
             self.target_source_SDK.catalog_workspace.create_or_update(
                 CatalogWorkspace(
-                    workspace_id = prefix + workspace_id,
-                    name = prefix + self.name,
+                    workspace_id = prefix + workspace_id + postfix,
+                    name = prefix + self.name+ postfix,
                     parent_id = self.parent
                 )
             )
@@ -112,14 +112,14 @@ class WorkspacesProcurement:
         return self.catalog
 
 
-    def get_and_load_LDM_and_ADM(self, from_workspace_id, prefix) -> None:
+    def get_and_load_LDM_and_ADM(self, from_workspace_id, prefix:str, postfix:str) -> None:
         self.ldm_to_load, self.adm_to_load = '',''
 
         self.ldm_to_load = self.original_source_SDK.catalog_workspace_content.get_declarative_ldm(from_workspace_id)
         self.adm_to_load = self.original_source_SDK.catalog_workspace_content.get_declarative_analytics_model(from_workspace_id)
 
-        self.target_source_SDK.catalog_workspace_content.put_declarative_ldm(prefix + from_workspace_id, self.ldm_to_load)
-        self.target_source_SDK.catalog_workspace_content.put_declarative_analytics_model(prefix + from_workspace_id, self.adm_to_load)
+        self.target_source_SDK.catalog_workspace_content.put_declarative_ldm(prefix + from_workspace_id + postfix, self.ldm_to_load)
+        self.target_source_SDK.catalog_workspace_content.put_declarative_analytics_model(prefix + from_workspace_id +postfix, self.adm_to_load)
     
 
     def extract_data_filters(self, workspaces:list, prefix:str, postfix:str) -> list:

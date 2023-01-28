@@ -5,4 +5,4 @@ TARGET_HOST_TOKEN:  # leave blank if go with the same GD Cloud Instance
 COPY_DB_SOURCE: False 
 WORKSPACES_TO_COPY: ['']
 PREFIX_FOR_NEW_WORKSPACES: '' # leave empty '' if transfer to another instance. (!) Mandatory to replicate in the same environment
-
+POSTFIX: ''
