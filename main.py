@@ -20,7 +20,7 @@ try:
         target_source_SDK = GoodDataSdk.create(config_data['TARGET_HOST'], config_data['TARGET_HOST_TOKEN'])
         print("Copying to the " + config_data['TARGET_HOST'])
     else:
-        if prefix != '' and postfix != '':
+        if prefix != '' or postfix != '':
             target_source_SDK = original_source_SDK
             print("Copying to the same HOST")
         else:
