@@ -1,5 +1,5 @@
 from gooddata_sdk import GoodDataSdk, CatalogWorkspace, CatalogDeclarativeWorkspaceDataFilters
-import copyWorkspacesClasses as cl
+import workspace_copier as cl
 import ruamel.yaml
 import sys
 
@@ -82,15 +82,19 @@ extracted_data_filters = transfer.extract_data_filters(created_workspaces,prefix
 # extracting existing data filters from target instance
 target_data_filters = target_source_SDK.catalog_workspace.get_declarative_workspace_data_filters().to_dict()['workspaceDataFilters']
 
-# getting list of ids to check the Collision Course 
-# (c) JAY-Z, Linkin Park ~♫♬ ♫♫ ♪♩ ♬♬ ♬♬ 
+# getting list of ids to check the Collision Course ~♫♬ ♫♫ ♪♩ ♬♬ ♬♬
 extracted_data_filters_id = [i['id'] for i in extracted_data_filters]
 target_data_filters_id = [i['id'] for i in target_data_filters]
 
-collisions =[   id     for id in target_data_filters_id     if id in extracted_data_filters_id   ]
+collisions = [   id     for id in target_data_filters_id     if id in extracted_data_filters_id   ]
 
 if collisions == []:
-    target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict({'workspaceDataFilters' : extracted_data_filters + target_data_filters}))    
+    target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(
+        workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict({
+            'workspaceDataFilters' : extracted_data_filters + target_data_filters
+            }
+        )
+    )    
 else:
     for filter in target_data_filters:
         if filter['id'] in collisions:
@@ -99,8 +103,5 @@ else:
                     extracted_filter['workspaceDataFilterSettings'].extend(filter['workspaceDataFilterSettings'])                
         else:
             extracted_data_filters.append(filter)    
-    target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict({'workspaceDataFilters' : extracted_data_filters}))        
-
-
-
-
+    target_source_SDK.catalog_workspace.put_declarative_workspace_data_filters(workspace_data_filters = CatalogDeclarativeWorkspaceDataFilters.from_dict({
+        'workspaceDataFilters' : extracted_data_filters}))        
